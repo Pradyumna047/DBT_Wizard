@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: wizard
+    description: Raw tables loaded from local CSV files into Unity Catalog.
+    database: my_wizard
+    schema: wizard_schema
+    tables:
+      - name: customers
+      - name: employees
+      - name: orders
+      - name: order_items
+      - name: products
+      - name: stores

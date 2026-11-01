@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: One row per customer.
+    columns:
+      - name: customer_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: email
+        description: Lowercased and trimmed.
+      - name: is_active
+        description: Source 'Y'/'N' flag cast to boolean.
+
+  - name: stg_employees
+    description: One row per employee, assigned to a store.
+    columns:
+      - name: employee_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_stores')
+                field: store_id
+      - name: salary
+        description: Cast from double to decimal(18,2).
+
+  - name: stg_stores
+    description: One row per store.
+    columns:
+      - name: store_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_products
+    description: One row per product.
+    columns:
+      - name: product_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: price
+        description: Cast from double to decimal(18,2).
+
+  - name: stg_orders
+    description: One row per order.
+    columns:
+      - name: order_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_stores')
+                field: store_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Cancelled', 'Completed', 'Pending', 'Returned']
+      - name: payment_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Cash', 'Credit Card', 'Debit Card', 'Gift Card', 'Online']
+      - name: total_amount
+        description: Cast from double to decimal(18,2).
+
+  - name: stg_order_items
+    description: One row per line item on an order.
+    columns:
+      - name: order_item_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_products')
+                field: product_id

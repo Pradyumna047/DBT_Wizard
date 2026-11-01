@@ -1,0 +1,100 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: One row per customer. Inactive customers are retained; filter on is_active.
+    columns:
+      - name: customer_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_employees
+    description: One row per employee.
+    columns:
+      - name: employee_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: store_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_stores')
+                field: store_id
+
+  - name: dim_products
+    description: One row per product.
+    columns:
+      - name: product_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_stores
+    description: One row per store.
+    columns:
+      - name: store_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fct_orders
+    description: >
+      One row per order, with line-item totals rolled up from fct_order_items.
+      header_vs_lines_diff exposes any gap between the order header total_amount
+      and the sum of its line amounts.
+    columns:
+      - name: order_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_stores')
+                field: store_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Cancelled', 'Completed', 'Pending', 'Returned']
+      - name: is_revenue_order
+        description: True only for Completed orders.
+
+  - name: fct_order_items
+    description: One row per order line, with order context denormalized on.
+    columns:
+      - name: order_item_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
