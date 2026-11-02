@@ -15,8 +15,8 @@ documented star schema you can actually query.
 ![SQL](https://img.shields.io/badge/SQL-4479A1?style=for-the-badge&logo=postgresql&logoColor=white)
 
 ![models](https://img.shields.io/badge/models-12-0A7BBB?style=flat-square)
-![tests](https://img.shields.io/badge/tests-46_passing-2EA44F?style=flat-square)
-![build](https://img.shields.io/badge/dbt_build-58%2F58_pass-2EA44F?style=flat-square)
+![tests](https://img.shields.io/badge/tests-66_passing-2EA44F?style=flat-square)
+![build](https://img.shields.io/badge/dbt_build-78%2F78_pass-2EA44F?style=flat-square)
 ![rows](https://img.shields.io/badge/rows_modelled-42k-6E40C9?style=flat-square)
 
 </div>
@@ -244,26 +244,49 @@ Materialized as Delta tables.
 
 `fct_orders` carries two columns worth calling out:
 
-- **`header_vs_lines_diff`** — the order's stated `total_amount` minus the sum of its line amounts. A built-in reconciliation check. *Currently zero across all 10,000 orders.*
+- **`header_vs_lines_diff`** — the order's stated `total_amount` minus the sum of its line amounts. A built-in reconciliation check, asserted by `assert_order_header_matches_lines` — currently zero across all 10,000 orders, and the build fails if that ever changes.
 - **`is_revenue_order`** — flags the 2,447 `Completed` orders. Cancelled, Pending and Returned rows are **kept**, not silently dropped, so you choose your own denominator.
 
 ---
 
 ## Data quality
 
-46 tests, running on every `dbt build`:
+**66 tests, running on every `dbt build`** — 24 on staging, 42 on the marts layer.
+
+### Structural
 
 | Test type | Covers |
 |---|---|
 | `unique` + `not_null` | Every primary key, all 12 models |
 | `relationships` | Every FK — orders→customers, orders→stores, items→orders, items→products, employees→stores |
 | `accepted_values` | `order_status`, `payment_method` |
+| `not_null` on measures | Every measure on both facts, so a null can't make a comparison vacuously pass |
+
+### Business logic
+
+Structural tests prove the shape is right. These prove the **numbers** are right —
+singular tests in `tests/`:
+
+| Test | Catches |
+|---|---|
+| `assert_order_header_matches_lines` | An order whose `total_amount` disagrees with the sum of its line amounts |
+| `assert_line_amount_matches_quantity_price` | The same break one grain down — `line_amount` ≠ `quantity × unit_price` |
+| `assert_fct_orders_measures_non_negative` | Negative amounts, quantities or line counts on an order |
+| `assert_fct_order_items_measures_non_negative` | A line selling zero or negative units, or at a negative price |
+| `assert_revenue_flag_matches_status` | `is_revenue_order` drifting out of sync with `order_status` |
+| `assert_fct_orders_row_count_matches_staging` | Fan-out or dropped rows from the item-rollup join |
+
+That last one is the quiet insurance policy. `fct_orders` left-joins an aggregate;
+if that rollup ever returns more than one row per order, every revenue figure
+silently doubles and no key test would notice. The row count fails instead.
 
 ```
-Done. PASS=58 WARN=0 ERROR=0 SKIP=0 TOTAL=58
+Done. PASS=78 WARN=0 ERROR=0 SKIP=0 TOTAL=78
 ```
 
-Referential integrity holds across the whole graph — no orphan line items, no orders without a customer.
+Referential integrity holds across the whole graph — no orphan line items, no
+orders without a customer — and both reconciliations are exact: order headers
+match their line sums to the cent, across all 10,000 orders.
 
 ---
 
